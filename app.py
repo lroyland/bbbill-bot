@@ -25,7 +25,7 @@ class OpenRouterLLM(LLM):
         data = {
             "model": MODEL,
             "messages": [
-                {"role": "system", "content": "You are an expert on U.S. federal legislation. Answer clearly and cite relevant sections if possible."},
+                {"role": "system", "content": "You are a legislative assistant with access to sections of H.R. 1 provided below. Use these exact excerpts to answer the user's question. Be specific, cite sections, and do not refer people to Congress.gov."},
                 {"role": "user", "content": prompt},
             ],
         }
@@ -62,13 +62,19 @@ if query:
         llm = OpenRouterLLM()
         qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=retriever)
 
-        # Run the query
-        result = qa_chain.run(query)
+        # Run the query and get answer with sources
+        result = qa_chain.invoke({"query": query})
         st.markdown("### 🧾 Answer:")
-        st.write(result)
+        st.write(result["result"] if "result" in result else result)
 
-        # Show top 3 matched chunks as citations
-        docs = retriever.get_relevant_documents(query)
-        st.markdown("### 📚 Top 3 Citations:")
-        for i, doc in enumerate(docs[:3], 1):
-            st.markdown(f"**{i}.** {doc.page_content}")
+        # Show top 3 sources as 300-character snippets
+        source_docs = result.get("source_documents", [])
+        if source_docs:
+            st.markdown("### 📚 Sources:")
+            for i, doc in enumerate(source_docs[:3], 1):
+                snippet = doc.page_content[:300]
+                if len(doc.page_content) > 300:
+                    snippet += "..."
+                # Add line breaks for readability
+                snippet = snippet.replace("\n", "\n\n")
+                st.markdown(f"**{i}.** {snippet}")
