@@ -86,4 +86,6 @@ if query:
                 if len(doc.page_content) > 300:
                     snippet += "..."
                 snippet = snippet.replace("\n", "\n\n")
-                st.markdown(f"**{i}.** {snippet}")
+                section = doc.metadata.get("section", "Unknown Section")
+                st.markdown(f"**{i}.** [{section}]\n{snippet}")
+        st.markdown(f"**{i}. {section}**\n\n> {snippet}")
