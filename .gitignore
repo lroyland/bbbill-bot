@@ -1,18 +1,5 @@
-# Bytecode
 __pycache__/
 *.pyc
-
-# Poetry + virtualenv
-poetry.lock
-.env
-.venv/
-
-# FAISS vector DB (rebuildable)
 bbbill_faiss/
-
-# Streamlit
-.streamlit/
-
-# Output/logs
-*.log
+.env
 
