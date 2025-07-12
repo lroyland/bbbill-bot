@@ -25,7 +25,7 @@ class OpenRouterLLM(LLM):
         data = {
             "model": MODEL,
             "messages": [
-                {"role": "system", "content": "You are a legislative assistant with access to sections of H.R. 1 provided below. Use these exact excerpts to answer the user's question. Be specific, cite sections, and do not refer people to Congress.gov."},
+                {"role": "system", "content": "You are a legislative assistant with access to relevant sections from H.R. 1. Use only provided excerpts to craft your response—cite section excerpts directly, and do not include hallucinated placeholders or external links."},
                 {"role": "user", "content": prompt},
             ],
         }
@@ -51,23 +51,33 @@ st.caption("Query the full text of H.R. 1 — 119th Congress")
 
 query = st.text_input("🔍 What do you want to know?", placeholder="E.g., Does the bill affect Medicare coverage?")
 
+# Load vector index (moved outside 'if query:' block)
+embedder = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+faiss_index = FAISS.load_local("bbbill_faiss", embedder, allow_dangerous_deserialization=True)
+retriever = faiss_index.as_retriever(search_type="similarity", k=5)
+
 if query:
     with st.spinner("Thinking..."):
-        # Load vector index
-        embedder = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        faiss_index = FAISS.load_local("bbbill_faiss", embedder, allow_dangerous_deserialization=True)
-        retriever = faiss_index.as_retriever(search_type="similarity", k=5)
-
-        # Set up RAG chain
+        # Set up LLM and QA chain
         llm = OpenRouterLLM()
-        qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=retriever)
+        qa_chain = RetrievalQA.from_chain_type(
+            llm=llm,
+            retriever=retriever,
+            return_source_documents=True
+        )
 
-        # Run the query and get answer with sources
+        # Retrieve documents manually for debug
+        retrieved = retriever.get_relevant_documents(query)
+        st.markdown("### 🔍 Retrieved Chunks:")
+        for i, doc in enumerate(retrieved[:3]):
+            st.text(f"{i+1}. {doc.page_content[:200]}...")
+
+        # Run the query and show results
         result = qa_chain.invoke({"query": query})
         st.markdown("### 🧾 Answer:")
         st.write(result["result"] if "result" in result else result)
 
-        # Show top 3 sources as 300-character snippets
+        # Show top 3 source snippets
         source_docs = result.get("source_documents", [])
         if source_docs:
             st.markdown("### 📚 Sources:")
@@ -75,6 +85,5 @@ if query:
                 snippet = doc.page_content[:300]
                 if len(doc.page_content) > 300:
                     snippet += "..."
-                # Add line breaks for readability
                 snippet = snippet.replace("\n", "\n\n")
                 st.markdown(f"**{i}.** {snippet}")
