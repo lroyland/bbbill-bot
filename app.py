@@ -8,7 +8,7 @@ from langchain.llms.base import LLM
 
 # ========== CONFIG ==========
 MODEL = "mistralai/mixtral-8x7b-instruct"  # or 'anthropic/claude-3-haiku'
-OPENROUTER_API_KEY = os.getenv("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")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 # ============================
 
 
@@ -45,7 +45,7 @@ if query:
     with st.spinner("Thinking..."):
         # Load vector index
         embedder = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        faiss_index = FAISS.load_local("bbbill_faiss", embedder)
+        faiss_index = FAISS.load_local("bbbill_faiss", embedder, allow_dangerous_deserialization=True)
         retriever = faiss_index.as_retriever(search_type="similarity", k=5)
 
         # Set up RAG chain
