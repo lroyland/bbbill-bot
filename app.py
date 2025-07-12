@@ -11,6 +11,9 @@ MODEL = "mistralai/mixtral-8x7b-instruct"  # or 'anthropic/claude-3-haiku'
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 # ============================
 
+if not OPENROUTER_API_KEY:
+    st.error("OPENROUTER_API_KEY environment variable is not set. Please set it in your shell or .env file and restart the app.")
+    st.stop()
 
 # --- Minimal LLM wrapper for OpenRouter ---
 class OpenRouterLLM(LLM):
@@ -27,7 +30,14 @@ class OpenRouterLLM(LLM):
             ],
         }
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", json=data, headers=headers)
-        return response.json()["choices"][0]["message"]["content"]
+        try:
+            res_json = response.json()
+        except Exception as e:
+            return f"Error parsing response: {e}\nRaw response: {response.text}"
+
+        if "choices" not in res_json:
+            return f"API Error: {res_json.get('error', res_json)}"
+        return res_json["choices"][0]["message"]["content"]
 
     @property
     def _llm_type(self):
@@ -56,3 +66,9 @@ if query:
         result = qa_chain.run(query)
         st.markdown("### 🧾 Answer:")
         st.write(result)
+
+        # Show top 3 matched chunks as citations
+        docs = retriever.get_relevant_documents(query)
+        st.markdown("### 📚 Top 3 Citations:")
+        for i, doc in enumerate(docs[:3], 1):
+            st.markdown(f"**{i}.** {doc.page_content}")
